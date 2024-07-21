@@ -4,17 +4,17 @@ import { User } from "../models/user.model.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 
-const generateAccessAndRefreshToken = async (userId) => {
+const generateAccessAndRefreshTokens = async (userId) => {
     try {
         const user = await User.findById(userId);
         const refreshToken = user.generateRefreshToken();
-        const accessToken = user.generateAccesToken();
+        const accessToken = user.generateAccessToken();
 
         user.refreshToken = refreshToken;
         await user.save({ validateBeforeSave: false });
 
         return { accessToken, refreshToken };
-    } catch {
+    } catch (error) {
         throw new ApiError(
             500,
             "Something went wrong while generating refresh and access token"
@@ -92,7 +92,7 @@ const registerUser = asyncHandler(async (req, res) => {
 const loginUser = asyncHandler(async (req, res) => {
     const { email, username, password } = req.body;
 
-    if (!email || !username) {
+    if (!(email || username)) {
         throw new ApiError(400, "Username or email is required");
     }
 
@@ -110,8 +110,9 @@ const loginUser = asyncHandler(async (req, res) => {
         throw new ApiError(401, "Incorrect Password");
     }
 
-    const { accessToken, refreshToken } =
-        await user.generateAccessAndRefreshToken(user._id);
+    const { accessToken, refreshToken } = await generateAccessAndRefreshTokens(
+        user._id
+    );
 
     const loggedInUser = await User.findById(user._id).select(
         "-password -refreshToken"
@@ -158,7 +159,7 @@ const logoutUser = asyncHandler(async (req, res) => {
         }
     );
 
-    options = {
+    const options = {
         httpOnly: true,
         secure: true,
     };
